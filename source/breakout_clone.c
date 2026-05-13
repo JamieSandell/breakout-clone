@@ -10,19 +10,26 @@ LRESULT CALLBACK window_procedure(
 	WPARAM w_param,
 	LPARAM l_param)
 {
+	LRESULT result = 0;
+	
 	switch(message)
 	{
+		case WM_ACTIVATEAPP:
+			break;
 		case WM_CLOSE:
 			DestroyWindow(window_handle);
 			break;
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
+		case WM_SIZE:
+			break;
 		default:
-			return DefWindowProc(window_handle, message, w_param, l_param);
+			result = DefWindowProc(window_handle, message, w_param, l_param);
+			break;
 	}
 	
-	return 0;
+	return result;
 }
 
 int WINAPI WinMain(
@@ -32,22 +39,17 @@ int WINAPI WinMain(
 		int command_show
 	)
 {
-    WNDCLASSEX window_class;
+    WNDCLASSEX window_class = {};
 	HWND window_handle;
 	MSG message;
 	
 	window_class.cbSize = sizeof(WNDCLASSEX);
-	window_class.style = 0;
 	window_class.lpfnWndProc = window_procedure;
-	window_class.cbClsExtra = 0;
-	window_class.cbWndExtra = 0;
 	window_class.hInstance = instance;
-	window_class.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
-	window_class.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	window_class.lpszMenuName = NULL;
+	window_class.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
+	//window_class.hIcon = LoadIcon(NULL, IDI_APPLICATION); // TODO: Add a large icon
 	window_class.lpszClassName = global_class_name;
-	window_class.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+	//window_class.hIconSm = LoadIcon(NULL, IDI_APPLICATION); // TODO: Add a small icon
 	
 	if (!RegisterClassEx(&window_class))
 	{
