@@ -1,3 +1,6 @@
+#include <inttypes.h>
+#include <stdbool.h>
+
 #pragma warning(push, 0)
 #include <windows.h>
 #pragma warning(pop)
@@ -14,6 +17,11 @@ struct
 	HBITMAP bitmap_handle;
 	HDC device_context;
 } frame = {0};
+
+struct
+{
+	bool is_running;
+} game = {0};
 
 LRESULT CALLBACK window_procedure
 (
@@ -36,6 +44,7 @@ LRESULT CALLBACK window_procedure
 		} break;
 		case WM_DESTROY:
 		{
+			game.is_running = false;
 			PostQuitMessage(0);
 		} break;
 		case WM_PAINT:
@@ -62,7 +71,10 @@ LRESULT CALLBACK window_procedure
 		} break;
 		case WM_SIZE:
 		{
-			frame.pixels = realloc(frame.pixels, 4 * frame.width * frame.height);
+			if (VirtualAlloc(NULL, 4 * frame.width * frame.height, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE) == NULL)
+			{
+				FatalAppExit(0, "Framebuffer allocation failed!");
+			}
 		} break;
 		default:
 		{
@@ -100,6 +112,9 @@ int WINAPI WinMain
 		return 0;
 	}
 	
+	frame.width = 480;
+	frame.height = 270;
+	
 	window_handle = CreateWindowEx(
 		WS_EX_CLIENTEDGE,	
 		global_class_name,
@@ -107,8 +122,8 @@ int WINAPI WinMain
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, // x
 		CW_USEDEFAULT, // y
-		480, // width
-		270, // height
+		frame.width,
+		frame.height,
 		NULL, // handle to parent window
 		NULL, // menu
 		instance,
@@ -124,14 +139,16 @@ int WINAPI WinMain
 	ShowWindow(window_handle, command_show);
 	UpdateWindow(window_handle);
 	
-	while(PeekMessage(&message, NULL, 0, 0, PM_REMOVE) > 0)
-	{
-		TranslateMessage(&message);
-		DispatchMessage(&message);
-		
-		InvalidateRect(window_handle, NULL, FALSE);
-		UpdateWindow(window_handle);
-	}
+	game.is_running = true;
 	
-	return message.wParam;
+	while (game.is_running)
+	{
+		while(PeekMessage(&message, NULL, 0, 0, PM_REMOVE) > 0)
+		{
+			TranslateMessage(&message);
+			DispatchMessage(&message);
+		}
+	}	
+	
+	return 0;
 }
