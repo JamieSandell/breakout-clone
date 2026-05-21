@@ -10,11 +10,23 @@
 const char global_class_name[] = "breakout_window_class";
 static HDC device_context;
 
+typedef union
+{
+	uint32_t raw;
+	struct
+	{
+		uint8_t b;
+		uint8_t g;
+		uint8_t r;
+		uint8_t a;
+	};
+} Pixel, Colour;
+
 struct
 {	
 	int width;
 	int height;
-	uint32_t *pixels;
+	Pixel *pixels;
 	BITMAPINFO bitmap_info;
 	HBITMAP bitmap_handle;
 	HDC device_context;
@@ -25,6 +37,11 @@ struct
 {
 	bool is_running;
 } game = {0};
+
+const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255}; 
+const Colour COLOUR_BLUE = {.b = 255, .g = 0, .r = 0, .a = 255};
+const Colour COLOUR_GREEN = {.b = 0, .g = 255, .r = 0, .a = 255};
+const Colour COLOUR_RED = {.b = 0, .g = 0, .r = 255, .a = 255};
 
 LRESULT CALLBACK window_procedure
 (
@@ -46,6 +63,20 @@ LRESULT CALLBACK window_procedure
 		{
 			game.is_running = false;
 			PostQuitMessage(0);
+		} break;
+		case WM_KEYDOWN:
+		{
+			switch (w_param)
+			{
+				case VK_ESCAPE:
+				{
+					DestroyWindow(window_handle);
+				} break;
+				default:
+				{
+					
+				} break;
+			}
 		} break;
 		case WM_PAINT:
 		{
@@ -134,18 +165,16 @@ int WINAPI WinMain
 	{
 		for (int x = 0; x < frame.width; ++x)
 		{
-			uint32_t *pixel = frame.pixels + x + (frame.width * y);
-			uint8_t *pixel_bit = (uint8_t *)pixel;
-			pixel_bit += 2;
-			*pixel_bit = 255;
+			Pixel *pixel = frame.pixels + x + (frame.width * y);
+			*pixel = COLOUR_BLACK;
 		}
 	}
 	
 	window_handle = CreateWindowEx(
-		WS_EX_CLIENTEDGE,	
+		0, // extended window styles
 		global_class_name,
 		"Breakout Clone",
-		WS_OVERLAPPEDWINDOW,
+		WS_POPUP,
 		CW_USEDEFAULT, // x
 		CW_USEDEFAULT, // y
 		frame.width,
@@ -162,7 +191,7 @@ int WINAPI WinMain
 		return 0;
 	}
 	
-	ShowWindow(window_handle, command_show);
+	ShowWindow(window_handle, WS_MAXIMIZED);
 	UpdateWindow(window_handle);
 	
 	game.is_running = true;
