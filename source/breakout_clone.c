@@ -5,17 +5,20 @@
 #include <windows.h>
 #pragma warning(pop)
 
+#pragma warning(disable: 4820) // bytes padding added after data member 
+
 const char global_class_name[] = "breakout_window_class";
 static HDC device_context;
 
 struct
-{
+{	
 	int width;
 	int height;
 	uint32_t *pixels;
 	BITMAPINFO bitmap_info;
 	HBITMAP bitmap_handle;
 	HDC device_context;
+	uint16_t bpp;
 } frame = {0};
 
 struct
@@ -35,9 +38,6 @@ LRESULT CALLBACK window_procedure
 	
 	switch(message)
 	{
-		case WM_ACTIVATEAPP:
-		{
-		} break;
 		case WM_CLOSE:
 		{
 			DestroyWindow(window_handle);
@@ -70,11 +70,8 @@ LRESULT CALLBACK window_procedure
 			EndPaint(window_handle, &paint);			
 		} break;
 		case WM_SIZE:
-		{
-			if (VirtualAlloc(NULL, 4 * frame.width * frame.height, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE) == NULL)
-			{
-				FatalAppExit(0, "Framebuffer allocation failed!");
-			}
+		{			
+			
 		} break;
 		default:
 		{
@@ -112,8 +109,37 @@ int WINAPI WinMain
 		return 0;
 	}
 	
+	frame.bpp = 32;
 	frame.width = 480;
 	frame.height = 270;
+	frame.pixels = VirtualAlloc(NULL, 4 * frame.width * frame.height, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+	if (frame.pixels == NULL)
+	{
+		FatalAppExit(0, "Framebuffer allocation failed!");
+	}
+
+	frame.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFO);
+	frame.bitmap_info.bmiHeader.biWidth = frame.width;
+	frame.bitmap_info.bmiHeader.biHeight = frame.height;
+	frame.bitmap_info.bmiHeader.biPlanes = 1;
+	frame.bitmap_info.bmiHeader.biBitCount = frame.bpp;
+	frame.bitmap_info.bmiHeader.biCompression = BI_RGB;
+	frame.bitmap_info.bmiHeader.biSizeImage = 0;
+	frame.bitmap_info.bmiHeader.biClrUsed = 0;
+	frame.bitmap_info.bmiHeader.biClrImportant = 0;
+
+	// pixel format is BGRA
+	for (int y = 0; y < frame.height; ++y)
+	{
+		for (int x = 0; x < frame.width; ++x)
+		{
+			uint32_t *pixel = frame.pixels + x + (frame.width * y);
+			uint8_t *pixel_bit = (uint8_t *)pixel;
+			pixel_bit += 2;
+			*pixel_bit = 255;
+		}
+	}
 	
 	window_handle = CreateWindowEx(
 		WS_EX_CLIENTEDGE,	
@@ -143,7 +169,7 @@ int WINAPI WinMain
 	
 	while (game.is_running)
 	{
-		while(PeekMessage(&message, NULL, 0, 0, PM_REMOVE) > 0)
+		while (PeekMessage(&message, NULL, 0, 0, PM_REMOVE) > 0)
 		{
 			TranslateMessage(&message);
 			DispatchMessage(&message);
