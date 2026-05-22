@@ -209,6 +209,8 @@ int WINAPI WinMain
 	
 	ShowCursor(0);
 	
+	make_bricks();
+	
 	ShowWindow(game.window_handle, SW_SHOWMAXIMIZED);
 	UpdateWindow(game.window_handle);	
 	
@@ -253,7 +255,7 @@ void make_bricks(void)
 					brick->is_alive = true;
 					brick->padding = padding;
 					brick->position.x = (column + padding) + (column * width);
-					brick->position.y = (row + padding) + (column * height);
+					brick->position.y = (row + padding) + (row * height);
 					brick->value = 1;
 					brick->width = width;
 				} break;
@@ -273,22 +275,23 @@ void render(void)
 {
 	memset(frame.pixels, 0, frame.width * frame.height * sizeof(Pixel));
 
-	for (int brick_index = 0; brick_index < TOTAL_BRICKS; ++brick)
+	Brick *brick = game.bricks;
+
+	for (int brick_index = 0; brick_index < TOTAL_BRICKS; ++brick_index)
 	{
-		Brick *brick = game.bricks;
-		
-		if (!brick.is_alive)
+		if (!brick->is_alive)
 		{
 			continue;
 		}
 		
-		Pixel *pixel = frame.pixels;
-		
 		for (int x = 0; x < brick->width; ++x)
 		{
+			Pixel *pixel = frame.pixels + x + brick->position.x;
+			
 			for (int y = 0; y < brick->height; ++y)
 			{
-				
+				pixel += (frame.width * y) + brick->position.y;
+				*pixel = brick->colour;
 			}
 		}
 		
