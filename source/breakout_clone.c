@@ -5,10 +5,13 @@
 #include <windows.h>
 #pragma warning(pop)
 
-#pragma warning(disable: 4820) // bytes padding added after data member 
+#pragma warning(disable: 4820) // bytes padding added after data member
+
+#define NUMBER_OF_ROWS 8
+#define BRICKS_PER_ROW 10
+#define TOTAL_BRICKS (NUMBER_OF_ROWS * BRICKS_PER_ROW)
 
 const char global_class_name[] = "breakout_window_class";
-static HDC device_context;
 
 typedef union
 {
@@ -24,34 +27,38 @@ typedef union
 
 struct
 {	
+	HDC device_context;
 	int width;
 	int height;
 	Pixel *pixels;
 	BITMAPINFO bitmap_info;
 	HBITMAP bitmap_handle;
-	HDC device_context;
 	uint16_t bpp;
 } frame = {0};
 
-struct
-{
-	bool is_running;
-} game = {0};
-
-typedef
+typedef struct
 {
 	int x;
 	int y;
 } Vec2;
 
-typedef
+typedef struct
 {
 	Colour colour;
 	uint8_t height;
+	bool is_alive;
+	uint8_t padding;
 	Vec2 position;
 	uint8_t value;
 	uint8_t width;
 } Brick;
+
+struct
+{
+	Brick bricks[TOTAL_BRICKS];
+	bool is_running;
+	HWND window_handle;
+} game = {0};
 
 const Colour COLOUR_BAD = {.b = 255, .g = 0, .r = 255, .a = 255};
 const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255}; 
@@ -59,6 +66,10 @@ const Colour COLOUR_GREEN = {.b = 48, .g = 134, .r = 2, .a = 255};
 const Colour COLOUR_ORANGE = {.b = 10, .g = 133, .r = 194, .a = 255};
 const Colour COLOUR_RED = {.b = 10, .g = 30, .r = 163, .a = 255};
 const Colour COLOUR_YELLOW = {.b = 41, .g = 194, .r = 194, .a = 255};
+
+void make_bricks(void);
+
+void render(void);
 
 LRESULT CALLBACK window_procedure
 (
@@ -98,10 +109,10 @@ LRESULT CALLBACK window_procedure
 		case WM_PAINT:
 		{
 			PAINTSTRUCT paint = {0};
-			device_context = BeginPaint(window_handle, &paint);
+			HDC paint_dc = BeginPaint(window_handle, &paint);
 			StretchDIBits
 			(
-				device_context,
+				paint_dc,
 				paint.rcPaint.left, // xDest
 				paint.rcPaint.top, // yDest
 				paint.rcPaint.right - paint.rcPaint.left, // destWidth
@@ -135,7 +146,6 @@ int WINAPI WinMain
 )
 {
     WNDCLASSEX window_class = {0};
-	HWND window_handle;
 	MSG message;
 	
 	window_class.cbSize = sizeof(WNDCLASSEX);
@@ -163,7 +173,7 @@ int WINAPI WinMain
 		FatalAppExit(0, "Framebuffer allocation failed!");
 	}
 
-	frame.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFO);
+	frame.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	frame.bitmap_info.bmiHeader.biWidth = frame.width;
 	frame.bitmap_info.bmiHeader.biHeight = frame.height;
 	frame.bitmap_info.bmiHeader.biPlanes = 1;
@@ -171,25 +181,12 @@ int WINAPI WinMain
 	frame.bitmap_info.bmiHeader.biCompression = BI_RGB;
 	frame.bitmap_info.bmiHeader.biSizeImage = 0;
 	frame.bitmap_info.bmiHeader.biClrUsed = 0;
-	frame.bitmap_info.bmiHeader.biClrImportant = 0;
-
-	// pixel format is BGRA
-	for (int y = 0; y < frame.height; ++y)
-	{
-		for (int x = 0; x < frame.width; ++x)
-		{
-			Pixel *pixel = frame.pixels + x + (frame.width * y);
-			*pixel = COLOUR_BLACK;
-		}
-	}
-	
-	Pixel *centre_pixel = frame.pixels + (frame.width / 2) + (frame.width * (frame.height / 2));
-	*centre_pixel = COLOUR_BAD;
+	frame.bitmap_info.bmiHeader.biClrImportant = 0;	
 	
 	int screen_width = GetSystemMetrics(SM_CXSCREEN);
 	int screen_height = GetSystemMetrics(SM_CYSCREEN);
 	
-	window_handle = CreateWindowEx(
+	game.window_handle = CreateWindowEx(
 		0, // extended window styles
 		global_class_name,
 		"Breakout Clone",
@@ -204,7 +201,7 @@ int WINAPI WinMain
 		NULL // lpParam
 	);
 	
-	if (window_handle == NULL)
+	if (game.window_handle == NULL)
 	{
 		MessageBox(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
 		return 0;
@@ -212,8 +209,10 @@ int WINAPI WinMain
 	
 	ShowCursor(0);
 	
-	ShowWindow(window_handle, SW_SHOWMAXIMIZED);
-	UpdateWindow(window_handle);
+	ShowWindow(game.window_handle, SW_SHOWMAXIMIZED);
+	UpdateWindow(game.window_handle);	
+	
+	frame.device_context = GetDC(game.window_handle);
 	
 	game.is_running = true;
 	
@@ -224,7 +223,99 @@ int WINAPI WinMain
 			TranslateMessage(&message);
 			DispatchMessage(&message);
 		}
+		
+		render();
 	}	
 	
 	return 0;
+}
+
+void make_bricks(void)
+{
+	static const uint8_t height = 4;
+	static const uint8_t padding = 1;
+	static const uint8_t width = 8;
+	
+	// make them bottom up, two rows of yellow at the bottom, then two rows of green, two rows of orange and then two rows of red at the top
+	Brick *brick = game.bricks;
+	
+	for (int row = 0; row < NUMBER_OF_ROWS; ++row)
+	{
+		for (int column = 0; column < BRICKS_PER_ROW; ++column)
+		{
+			switch (row)
+			{
+				case 0: // fall-through
+				case 1:
+				{
+					brick->colour = COLOUR_YELLOW;
+					brick->height = height;
+					brick->is_alive = true;
+					brick->padding = padding;
+					brick->position.x = (column + padding) + (column * width);
+					brick->position.y = (row + padding) + (column * height);
+					brick->value = 1;
+					brick->width = width;
+				} break;
+				default:
+				{
+					// error
+					brick->is_alive = false;
+				} break;
+			}
+			
+			++brick;
+		}
+	}
+}
+
+void render(void)
+{
+	memset(frame.pixels, 0, frame.width * frame.height * sizeof(Pixel));
+
+	for (int brick_index = 0; brick_index < TOTAL_BRICKS; ++brick)
+	{
+		Brick *brick = game.bricks;
+		
+		if (!brick.is_alive)
+		{
+			continue;
+		}
+		
+		Pixel *pixel = frame.pixels;
+		
+		for (int x = 0; x < brick->width; ++x)
+		{
+			for (int y = 0; y < brick->height; ++y)
+			{
+				
+			}
+		}
+		
+		++brick;
+	}
+	
+	Pixel *centre_pixel = frame.pixels + (frame.width / 2) + (frame.width * (frame.height / 2));
+	*centre_pixel = COLOUR_BAD;
+	
+	RECT client_rect;
+	GetClientRect(game.window_handle, &client_rect);
+	int window_width = client_rect.right - client_rect.left;
+	int window_height = client_rect.bottom - client_rect.top;
+	StretchDIBits
+	(
+		frame.device_context,
+		0, // xDest
+		0, // yDest
+		window_width, // destWidth
+		window_height, // destHeight
+		0, // xSrc
+		0, // ySrc
+		frame.width,
+		frame.height,
+		frame.pixels,
+		&frame.bitmap_info,
+		DIB_RGB_COLORS,
+		SRCCOPY
+	);	
 }
