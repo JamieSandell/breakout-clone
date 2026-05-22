@@ -38,6 +38,21 @@ struct
 	bool is_running;
 } game = {0};
 
+typedef
+{
+	int x;
+	int y;
+} Vec2;
+
+typedef
+{
+	Colour colour;
+	uint8_t height;
+	Vec2 position;
+	uint8_t value;
+	uint8_t width;
+} Brick;
+
 const Colour COLOUR_BAD = {.b = 255, .g = 0, .r = 255, .a = 255};
 const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255}; 
 const Colour COLOUR_GREEN = {.b = 48, .g = 134, .r = 2, .a = 255};
