@@ -38,10 +38,12 @@ struct
 	bool is_running;
 } game = {0};
 
+const Colour COLOUR_BAD = {.b = 255, .g = 0, .r = 255, .a = 255};
 const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255}; 
-const Colour COLOUR_BLUE = {.b = 255, .g = 0, .r = 0, .a = 255};
-const Colour COLOUR_GREEN = {.b = 0, .g = 255, .r = 0, .a = 255};
-const Colour COLOUR_RED = {.b = 0, .g = 0, .r = 255, .a = 255};
+const Colour COLOUR_GREEN = {.b = 48, .g = 134, .r = 2, .a = 255};
+const Colour COLOUR_ORANGE = {.b = 10, .g = 133, .r = 194, .a = 255};
+const Colour COLOUR_RED = {.b = 10, .g = 30, .r = 163, .a = 255};
+const Colour COLOUR_YELLOW = {.b = 41, .g = 194, .r = 194, .a = 255};
 
 LRESULT CALLBACK window_procedure
 (
@@ -99,10 +101,6 @@ LRESULT CALLBACK window_procedure
 				SRCCOPY
 			);
 			EndPaint(window_handle, &paint);			
-		} break;
-		case WM_SIZE:
-		{			
-			
 		} break;
 		default:
 		{
@@ -170,6 +168,12 @@ int WINAPI WinMain
 		}
 	}
 	
+	Pixel *centre_pixel = frame.pixels + (frame.width / 2) + (frame.width * (frame.height / 2));
+	*centre_pixel = COLOUR_BAD;
+	
+	int screen_width = GetSystemMetrics(SM_CXSCREEN);
+	int screen_height = GetSystemMetrics(SM_CYSCREEN);
+	
 	window_handle = CreateWindowEx(
 		0, // extended window styles
 		global_class_name,
@@ -177,8 +181,8 @@ int WINAPI WinMain
 		WS_POPUP,
 		CW_USEDEFAULT, // x
 		CW_USEDEFAULT, // y
-		frame.width,
-		frame.height,
+		screen_width,
+		screen_height,
 		NULL, // handle to parent window
 		NULL, // menu
 		instance,
@@ -191,7 +195,9 @@ int WINAPI WinMain
 		return 0;
 	}
 	
-	ShowWindow(window_handle, WS_MAXIMIZED);
+	ShowCursor(0);
+	
+	ShowWindow(window_handle, SW_SHOWMAXIMIZED);
 	UpdateWindow(window_handle);
 	
 	game.is_running = true;
