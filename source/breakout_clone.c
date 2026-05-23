@@ -60,7 +60,6 @@ struct
 	HWND window_handle;
 } game = {0};
 
-const Colour COLOUR_BAD = {.b = 255, .g = 0, .r = 255, .a = 255};
 const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255}; 
 const Colour COLOUR_GREEN = {.b = 48, .g = 134, .r = 2, .a = 255};
 const Colour COLOUR_ORANGE = {.b = 10, .g = 133, .r = 194, .a = 255};
@@ -259,6 +258,42 @@ void make_bricks(void)
 					brick->value = 1;
 					brick->width = width;
 				} break;
+				case 2: // fall-through
+				case 3:
+				{
+					brick->colour = COLOUR_GREEN;
+					brick->height = height;
+					brick->is_alive = true;
+					brick->padding = padding;
+					brick->position.x = (column + padding) + (column * width);
+					brick->position.y = (row + padding) + (row * height);
+					brick->value = 3;
+					brick->width = width;
+				} break;
+				case 4: // fall-through
+				case 5:
+				{
+					brick->colour = COLOUR_ORANGE;
+					brick->height = height;
+					brick->is_alive = true;
+					brick->padding = padding;
+					brick->position.x = (column + padding) + (column * width);
+					brick->position.y = (row + padding) + (row * height);
+					brick->value = 5;
+					brick->width = width;
+				} break;
+				case 6: // fall-through
+				case 7:
+				{
+					brick->colour = COLOUR_RED;
+					brick->height = height;
+					brick->is_alive = true;
+					brick->padding = padding;
+					brick->position.x = (column + padding) + (column * width);
+					brick->position.y = (row + padding) + (row * height);
+					brick->value = 7;
+					brick->width = width;
+				} break;
 				default:
 				{
 					// error
@@ -284,22 +319,18 @@ void render(void)
 			continue;
 		}
 		
-		for (int x = 0; x < brick->width; ++x)
+		for (int y = 0; y < brick->height; ++y)
 		{
-			Pixel *pixel = frame.pixels + x + brick->position.x;
-			
-			for (int y = 0; y < brick->height; ++y)
+			for (int x = 0; x < brick->width; ++x)
 			{
-				pixel += (frame.width * y) + brick->position.y;
+				Pixel *pixel = frame.pixels + (frame.width * (brick->position.y + y)); // start of the brick in the y + current row of the brick to render
+				pixel += brick->position.x + x;
 				*pixel = brick->colour;
 			}
 		}
 		
 		++brick;
 	}
-	
-	Pixel *centre_pixel = frame.pixels + (frame.width / 2) + (frame.width * (frame.height / 2));
-	*centre_pixel = COLOUR_BAD;
 	
 	RECT client_rect;
 	GetClientRect(game.window_handle, &client_rect);
