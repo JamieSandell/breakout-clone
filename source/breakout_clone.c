@@ -7,9 +7,15 @@
 
 #pragma warning(disable: 4820) // bytes padding added after data member
 
+#define WINDOW_HEIGHT 1080
+#define WINDOW_WIDTH 1920
+
 #define NUMBER_OF_ROWS 8
 #define BRICKS_PER_ROW 10
 #define TOTAL_BRICKS (NUMBER_OF_ROWS * BRICKS_PER_ROW)
+#define BRICK_PADDING 1
+#define BRICK_WIDTH (WINDOW_WIDTH / BRICKS_PER_ROW) - BRICK_PADDING
+#define BRICK_HEIGHT (WINDOW_HEIGHT / 4 / BRICKS_PER_ROW) - BRICK_PADDING
 
 const char global_class_name[] = "breakout_window_class";
 
@@ -163,8 +169,8 @@ int WINAPI WinMain
 	}
 	
 	frame.bpp = 32;
-	frame.width = 480;
-	frame.height = 270;
+	frame.width = WINDOW_WIDTH;
+	frame.height = WINDOW_HEIGHT;
 	frame.pixels = VirtualAlloc(NULL, 4 * frame.width * frame.height, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
 	if (frame.pixels == NULL)
@@ -232,13 +238,10 @@ int WINAPI WinMain
 }
 
 void make_bricks(void)
-{
-	static const uint8_t height = 4;
-	static const uint8_t padding = 1;
-	static const uint8_t width = 8;
-	
+{	
 	// make them bottom up, two rows of yellow at the bottom, then two rows of green, two rows of orange and then two rows of red at the top
 	Brick *brick = game.bricks;
+	int yOffset = frame.height - (NUMBER_OF_ROWS * (BRICK_HEIGHT + BRICK_PADDING));
 	
 	for (int row = 0; row < NUMBER_OF_ROWS; ++row)
 	{
@@ -250,49 +253,49 @@ void make_bricks(void)
 				case 1:
 				{
 					brick->colour = COLOUR_YELLOW;
-					brick->height = height;
+					brick->height = BRICK_HEIGHT;
+					brick->width = BRICK_WIDTH;
 					brick->is_alive = true;
-					brick->padding = padding;
-					brick->position.x = (column + padding) + (column * width);
-					brick->position.y = (row + padding) + (row * height);
-					brick->value = 1;
-					brick->width = width;
+					brick->padding = BRICK_PADDING;
+					brick->position.x = (column + brick->padding) + (column * brick->width);
+					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
+					brick->value = 1;					
 				} break;
 				case 2: // fall-through
 				case 3:
 				{
 					brick->colour = COLOUR_GREEN;
-					brick->height = height;
+					brick->height = BRICK_HEIGHT;
+					brick->width = BRICK_WIDTH;
 					brick->is_alive = true;
-					brick->padding = padding;
-					brick->position.x = (column + padding) + (column * width);
-					brick->position.y = (row + padding) + (row * height);
+					brick->padding = BRICK_PADDING;
+					brick->position.x = (column + brick->padding) + (column * brick->width);
+					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
 					brick->value = 3;
-					brick->width = width;
 				} break;
 				case 4: // fall-through
 				case 5:
 				{
 					brick->colour = COLOUR_ORANGE;
-					brick->height = height;
+					brick->height = BRICK_HEIGHT;
+					brick->width = BRICK_WIDTH;
 					brick->is_alive = true;
-					brick->padding = padding;
-					brick->position.x = (column + padding) + (column * width);
-					brick->position.y = (row + padding) + (row * height);
+					brick->padding = BRICK_PADDING;
+					brick->position.x = (column + brick->padding) + (column * brick->width);
+					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
 					brick->value = 5;
-					brick->width = width;
 				} break;
 				case 6: // fall-through
 				case 7:
 				{
 					brick->colour = COLOUR_RED;
-					brick->height = height;
+					brick->height = BRICK_HEIGHT;
+					brick->width = BRICK_WIDTH;
 					brick->is_alive = true;
-					brick->padding = padding;
-					brick->position.x = (column + padding) + (column * width);
-					brick->position.y = (row + padding) + (row * height);
+					brick->padding = BRICK_PADDING;
+					brick->position.x = (column + brick->padding) + (column * brick->width);
+					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
 					brick->value = 7;
-					brick->width = width;
 				} break;
 				default:
 				{
@@ -311,7 +314,7 @@ void render(void)
 	memset(frame.pixels, 0, frame.width * frame.height * sizeof(Pixel));
 
 	Brick *brick = game.bricks;
-
+	
 	for (int brick_index = 0; brick_index < TOTAL_BRICKS; ++brick_index)
 	{
 		if (!brick->is_alive)
