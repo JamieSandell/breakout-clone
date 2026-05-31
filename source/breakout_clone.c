@@ -17,6 +17,9 @@
 #define BRICK_WIDTH (WINDOW_WIDTH / BRICKS_PER_ROW) - BRICK_PADDING
 #define BRICK_HEIGHT (WINDOW_HEIGHT / 4 / BRICKS_PER_ROW) - BRICK_PADDING
 
+#define PLAYER_WIDTH BRICK_WIDTH
+#define PLAYER_HEIGHT BRICK_HEIGHT
+
 const char global_class_name[] = "breakout_window_class";
 
 typedef union
@@ -59,20 +62,32 @@ typedef struct
 	uint8_t width;
 } Brick;
 
+typedef struct
+{
+	Colour colour;
+	uint8_t height;
+	uint8_t width;
+	Vec2 position;
+} Player;
+
 struct
 {
 	Brick bricks[TOTAL_BRICKS];
 	bool is_running;
+	Player player;
 	HWND window_handle;
 } game = {0};
 
-const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255}; 
+const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255};
+const Colour COLOUR_BLUE = {.b = 194, .g = 133, .r = 10, .a = 255};
 const Colour COLOUR_GREEN = {.b = 48, .g = 134, .r = 2, .a = 255};
 const Colour COLOUR_ORANGE = {.b = 10, .g = 133, .r = 194, .a = 255};
 const Colour COLOUR_RED = {.b = 10, .g = 30, .r = 163, .a = 255};
 const Colour COLOUR_YELLOW = {.b = 41, .g = 194, .r = 194, .a = 255};
 
 void make_bricks(void);
+
+void make_player(void);
 
 void render(void);
 
@@ -214,8 +229,9 @@ int WINAPI WinMain
 	
 	ShowCursor(0);
 	
-	make_bricks();
-	
+	make_bricks();	
+	make_player();
+		
 	ShowWindow(game.window_handle, SW_SHOWMAXIMIZED);
 	UpdateWindow(game.window_handle);	
 	
@@ -309,6 +325,15 @@ void make_bricks(void)
 	}
 }
 
+void make_player(void)
+{
+	game.player.colour = COLOUR_BLUE;
+	game.player.width = PLAYER_WIDTH;
+	game.player.height = PLAYER_HEIGHT;
+	game.player.position.x = (frame.width / 2) - (game.player.width / 2);
+	game.player.position.y = (frame.height / game.player.height) + game.player.height;
+}
+
 void render(void)
 {
 	memset(frame.pixels, 0, frame.width * frame.height * sizeof(Pixel));
@@ -333,6 +358,16 @@ void render(void)
 		}
 		
 		++brick;
+	}
+	
+	for (int y = 0; y < game.player.height; ++y)
+	{
+		for (int x = 0; x < game.player.width; ++x)
+		{
+			Pixel *pixel = frame.pixels + (frame.width * (game.player.position.y + y));
+			pixel += game.player.position.x + x;
+			*pixel = game.player.colour;
+		}
 	}
 	
 	RECT client_rect;
