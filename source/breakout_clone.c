@@ -7,18 +7,21 @@
 
 #pragma warning(disable: 4820) // bytes padding added after data member
 
-#define WINDOW_HEIGHT 1080
 #define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
+
+#define RESOLUTION_WIDTH 480
+#define RESOLUTION_HEIGHT 270
 
 #define NUMBER_OF_ROWS 8
-#define BRICKS_PER_ROW 10
+#define BRICKS_PER_ROW 14
 #define TOTAL_BRICKS (NUMBER_OF_ROWS * BRICKS_PER_ROW)
-#define BRICK_PADDING 1
-#define BRICK_WIDTH (WINDOW_WIDTH / BRICKS_PER_ROW) - BRICK_PADDING
-#define BRICK_HEIGHT (WINDOW_HEIGHT / 4 / BRICKS_PER_ROW) - BRICK_PADDING
+#define BRICK_PADDING 2
+#define BRICK_WIDTH 32
+#define BRICK_HEIGHT 8
 
-#define PLAYER_WIDTH BRICK_WIDTH
-#define PLAYER_HEIGHT BRICK_HEIGHT
+#define PLAYER_WIDTH 64
+#define PLAYER_HEIGHT 8
 
 const char global_class_name[] = "breakout_window_class";
 
@@ -43,6 +46,11 @@ struct
 	BITMAPINFO bitmap_info;
 	HBITMAP bitmap_handle;
 	uint16_t bpp;
+	LARGE_INTEGER frequency;
+	LARGE_INTEGER last_time;
+	double frame_time;
+	uint32_t fps;
+	uint32_t frame_count;
 } frame = {0};
 
 typedef struct
@@ -53,21 +61,24 @@ typedef struct
 
 typedef struct
 {
-	Colour colour;
+	uint8_t width;
 	uint8_t height;
+	Colour colour;
+	Vec2 position;
+} RenderRect;
+
+typedef struct
+{
 	bool is_alive;
 	uint8_t padding;
-	Vec2 position;
 	uint8_t value;
-	uint8_t width;
+	RenderRect rect;
 } Brick;
 
 typedef struct
 {
-	Colour colour;
-	uint8_t height;
-	uint8_t width;
-	Vec2 position;
+	RenderRect rect;
+	uint16_t score;
 } Player;
 
 struct
@@ -90,6 +101,8 @@ void make_bricks(void);
 void make_player(void);
 
 void render(void);
+
+void render_rect_to_frame(const RenderRect *rect);
 
 LRESULT CALLBACK window_procedure
 (
@@ -184,8 +197,8 @@ int WINAPI WinMain
 	}
 	
 	frame.bpp = 32;
-	frame.width = WINDOW_WIDTH;
-	frame.height = WINDOW_HEIGHT;
+	frame.width = RESOLUTION_WIDTH;
+	frame.height = RESOLUTION_HEIGHT;
 	frame.pixels = VirtualAlloc(NULL, 4 * frame.width * frame.height, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
 	if (frame.pixels == NULL)
@@ -239,6 +252,8 @@ int WINAPI WinMain
 	
 	game.is_running = true;
 	
+	QueryPerformanceFrequency(&frame.frequency);
+	
 	while (game.is_running)
 	{
 		while (PeekMessage(&message, NULL, 0, 0, PM_REMOVE) > 0)
@@ -254,72 +269,60 @@ int WINAPI WinMain
 }
 
 void make_bricks(void)
-{	
-	// make them bottom up, two rows of yellow at the bottom, then two rows of green, two rows of orange and then two rows of red at the top
+{
 	Brick *brick = game.bricks;
-	int yOffset = frame.height - (NUMBER_OF_ROWS * (BRICK_HEIGHT + BRICK_PADDING));
-	
+
+	int brick_spacing_x = BRICK_WIDTH + BRICK_PADDING;
+	int brick_spacing_y = BRICK_HEIGHT + BRICK_PADDING;
+	int y_offset = 160;
+
 	for (int row = 0; row < NUMBER_OF_ROWS; ++row)
 	{
 		for (int column = 0; column < BRICKS_PER_ROW; ++column)
 		{
 			switch (row)
 			{
-				case 0: // fall-through
+				case 0:
 				case 1:
 				{
-					brick->colour = COLOUR_YELLOW;
-					brick->height = BRICK_HEIGHT;
-					brick->width = BRICK_WIDTH;
-					brick->is_alive = true;
-					brick->padding = BRICK_PADDING;
-					brick->position.x = (column + brick->padding) + (column * brick->width);
-					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
-					brick->value = 1;					
+					brick->rect.colour = COLOUR_YELLOW;
+					brick->value = 1;
 				} break;
-				case 2: // fall-through
+
+				case 2:
 				case 3:
 				{
-					brick->colour = COLOUR_GREEN;
-					brick->height = BRICK_HEIGHT;
-					brick->width = BRICK_WIDTH;
-					brick->is_alive = true;
-					brick->padding = BRICK_PADDING;
-					brick->position.x = (column + brick->padding) + (column * brick->width);
-					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
+					brick->rect.colour = COLOUR_GREEN;
 					brick->value = 3;
 				} break;
-				case 4: // fall-through
+
+				case 4:
 				case 5:
 				{
-					brick->colour = COLOUR_ORANGE;
-					brick->height = BRICK_HEIGHT;
-					brick->width = BRICK_WIDTH;
-					brick->is_alive = true;
-					brick->padding = BRICK_PADDING;
-					brick->position.x = (column + brick->padding) + (column * brick->width);
-					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
+					brick->rect.colour = COLOUR_ORANGE;
 					brick->value = 5;
 				} break;
-				case 6: // fall-through
+
+				case 6:
 				case 7:
 				{
-					brick->colour = COLOUR_RED;
-					brick->height = BRICK_HEIGHT;
-					brick->width = BRICK_WIDTH;
-					brick->is_alive = true;
-					brick->padding = BRICK_PADDING;
-					brick->position.x = (column + brick->padding) + (column * brick->width);
-					brick->position.y = (row + brick->padding) + (row * brick->height) + yOffset;
+					brick->rect.colour = COLOUR_RED;
 					brick->value = 7;
 				} break;
+
 				default:
 				{
-					// error
 					brick->is_alive = false;
 				} break;
 			}
-			
+
+			brick->rect.width = BRICK_WIDTH;
+			brick->rect.height = BRICK_HEIGHT;
+			brick->rect.position.x = column * brick_spacing_x;
+			brick->rect.position.y = y_offset + (row * brick_spacing_y);
+			brick->is_alive = true;
+			brick->padding = BRICK_PADDING;
+
 			++brick;
 		}
 	}
@@ -327,11 +330,24 @@ void make_bricks(void)
 
 void make_player(void)
 {
-	game.player.colour = COLOUR_BLUE;
-	game.player.width = PLAYER_WIDTH;
-	game.player.height = PLAYER_HEIGHT;
-	game.player.position.x = (frame.width / 2) - (game.player.width / 2);
-	game.player.position.y = (frame.height / game.player.height) + game.player.height;
+	game.player.rect.colour = COLOUR_BLUE;
+	game.player.rect.width = PLAYER_WIDTH;
+	game.player.rect.height = PLAYER_HEIGHT;
+	game.player.rect.position.x = (frame.width / 2) - (game.player.rect.width / 2);
+	game.player.rect.position.y = game.player.rect.height;
+}
+
+void render_rect_to_frame(const RenderRect *rect)
+{
+	for (int y = 0; y < rect->height; ++y)
+	{
+		for (int x = 0; x < rect->width; ++x)
+		{
+			Pixel *pixel = frame.pixels + (frame.width * (rect->position.y + y)); // start of the rect in the y + current row of the rect to render
+			pixel += rect->position.x + x;
+			*pixel = rect->colour;
+		}
+	}
 }
 
 void render(void)
@@ -342,33 +358,15 @@ void render(void)
 	
 	for (int brick_index = 0; brick_index < TOTAL_BRICKS; ++brick_index)
 	{
-		if (!brick->is_alive)
+		if (brick->is_alive)
 		{
-			continue;
-		}
-		
-		for (int y = 0; y < brick->height; ++y)
-		{
-			for (int x = 0; x < brick->width; ++x)
-			{
-				Pixel *pixel = frame.pixels + (frame.width * (brick->position.y + y)); // start of the brick in the y + current row of the brick to render
-				pixel += brick->position.x + x;
-				*pixel = brick->colour;
-			}
-		}
-		
+			render_rect_to_frame(&brick->rect);	
+		}		
+			
 		++brick;
 	}
 	
-	for (int y = 0; y < game.player.height; ++y)
-	{
-		for (int x = 0; x < game.player.width; ++x)
-		{
-			Pixel *pixel = frame.pixels + (frame.width * (game.player.position.y + y));
-			pixel += game.player.position.x + x;
-			*pixel = game.player.colour;
-		}
-	}
+	render_rect_to_frame(&game.player.rect);
 	
 	RECT client_rect;
 	GetClientRect(game.window_handle, &client_rect);
