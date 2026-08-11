@@ -106,11 +106,11 @@ const Colour COLOUR_RED = {.b = 10, .g = 30, .r = 163, .a = 255};
 const Colour COLOUR_TRANSPARENT = {.b = 186, .g = 123, .r = 215, .a = 255};
 const Colour COLOUR_YELLOW = {.b = 41, .g = 194, .r = 194, .a = 255};
 
+void load_bitmap_into_sprite(const char *file_name, Sprite *sprite);
+
 void make_bricks(void);
 
 void make_player(void);
-
-void read_sprites(void);
 
 void render(void);
 
@@ -258,7 +258,7 @@ int WINAPI WinMain
 	
 	make_bricks();	
 	make_player();
-	read_sprites();
+	load_bitmap_into_sprite("..\\assets\\sprites\\0.bmp", &game.score_sprite[0]);
 		
 	ShowWindow(game.window_handle, SW_SHOWMAXIMIZED);
 	UpdateWindow(game.window_handle);	
@@ -281,6 +281,70 @@ int WINAPI WinMain
 	}	
 	
 	return 0;
+}
+
+void load_bitmap_into_sprite(const char *file_name, Sprite *sprite)
+{
+	HANDLE file_handle = CreateFile(
+		file_name,
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+	
+	if (file_handle == INVALID_HANDLE_VALUE)
+	{
+		FatalAppExit(0, "Failed to open file for reading.");
+	}
+	
+	uint32_t file_size = GetFileSize(file_handle, NULL);
+	
+	HANDLE process_heap_handle = GetProcessHeap();
+	
+	if (process_heap_handle == NULL)
+	{
+		FatalAppExit(0, "Failed to get a handle to the process heap.");
+	}
+	
+	char *raw_data = HeapAlloc(process_heap_handle, HEAP_ZERO_MEMORY, file_size);
+	unsigned long bytes_read;
+	int32_t result = ReadFile(
+		file_handle,
+		raw_data,
+		file_size,
+		&bytes_read,
+		NULL
+	);
+	
+	if (result == 0)
+	{
+		FatalAppExit(0, "Failed to read file.");
+	}
+	
+	uint16_t bf_type = *((uint16_t *)raw_data);
+	
+	if (bf_type != 0x4d42)
+	{
+		FatalAppExit(0, "Not a valid bitmap file.");
+	}
+	
+	unsigned long offset = *((unsigned long *)(raw_data + 10));
+	
+	if (offset != 54)
+	{
+		FatalAppExit(0, "Bitmap should be 24bpp uncompressed.");
+	}
+	
+	BITMAPINFOHEADER *info_header = (BITMAPINFOHEADER *)(raw_data + 40);
+	sprite->height = (uint8_t)info_header->biHeight;
+	sprite->width = (uint8_t)info_header->biWidth;
+	
+	unsigned long bytes_to_read = bytes_read - offset;
+	
+	CloseHandle(file_handle);
 }
 
 void make_bricks(void)
@@ -350,56 +414,6 @@ void make_player(void)
 	game.player.rect.height = PLAYER_HEIGHT;
 	game.player.rect.position.x = (frame.width / 2) - (game.player.rect.width / 2);
 	game.player.rect.position.y = game.player.rect.height;
-}
-
-/*
-Open the bitmap file for reading
-Get the size of the bitmap file
-Allocate a buffer for the file contents
-Read the file contents into the buffer
-*/
-void read_sprites(void)
-{
-	HANDLE file_handle = CreateFile(
-		"..\\assets\\sprites\\0.bmp",
-		GENERIC_READ,
-		FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		FILE_ATTRIBUTE_NORMAL,
-		NULL
-	);
-	
-	if (file_handle == INVALID_HANDLE_VALUE)
-	{
-		FatalAppExit(0, "Failed to open file for reading.");
-	}
-	
-	uint32_t file_size = GetFileSize(file_handle, NULL);
-	
-	HANDLE process_heap_handle = GetProcessHeap();
-	
-	if (process_heap_handle == NULL)
-	{
-		FatalAppExit(0, "Failed to get a handle to the process heap.");
-	}
-	
-	char *raw_data = HeapAlloc(process_heap_handle, HEAP_ZERO_MEMORY, file_size);
-	DWORD bytes_read;
-	int32_t result = ReadFile(
-		file_handle,
-		raw_data,
-		file_size,
-		&bytes_read,
-		NULL
-	);
-	
-	if (result == 0)
-	{
-		FatalAppExit(0, "Failed to read file.");
-	}
-	
-	CloseHandle(file_handle);
 }
 
 void render_rect_to_frame(const RenderRect *rect)
