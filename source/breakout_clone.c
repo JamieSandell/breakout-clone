@@ -63,6 +63,14 @@ typedef struct
 {
 	uint8_t width;
 	uint8_t height;
+	Pixel *pixels;
+	Vec2 position;
+} Sprite;
+
+typedef struct
+{
+	uint8_t width;
+	uint8_t height;
 	Colour colour;
 	Vec2 position;
 } RenderRect;
@@ -87,6 +95,7 @@ struct
 	bool is_running;
 	Player player;
 	HWND window_handle;
+	Sprite score_sprite[3];
 } game = {0};
 
 const Colour COLOUR_BLACK = {.b = 0, .g = 0, .r = 0, .a = 255};
@@ -94,15 +103,20 @@ const Colour COLOUR_BLUE = {.b = 194, .g = 133, .r = 10, .a = 255};
 const Colour COLOUR_GREEN = {.b = 48, .g = 134, .r = 2, .a = 255};
 const Colour COLOUR_ORANGE = {.b = 10, .g = 133, .r = 194, .a = 255};
 const Colour COLOUR_RED = {.b = 10, .g = 30, .r = 163, .a = 255};
+const Colour COLOUR_TRANSPARENT = {.b = 186, .g = 123, .r = 215, .a = 255};
 const Colour COLOUR_YELLOW = {.b = 41, .g = 194, .r = 194, .a = 255};
 
 void make_bricks(void);
 
 void make_player(void);
 
+void read_sprites(void);
+
 void render(void);
 
 void render_rect_to_frame(const RenderRect *rect);
+
+void update(void);
 
 LRESULT CALLBACK window_procedure
 (
@@ -244,6 +258,7 @@ int WINAPI WinMain
 	
 	make_bricks();	
 	make_player();
+	read_sprites();
 		
 	ShowWindow(game.window_handle, SW_SHOWMAXIMIZED);
 	UpdateWindow(game.window_handle);	
@@ -337,6 +352,56 @@ void make_player(void)
 	game.player.rect.position.y = game.player.rect.height;
 }
 
+/*
+Open the bitmap file for reading
+Get the size of the bitmap file
+Allocate a buffer for the file contents
+Read the file contents into the buffer
+*/
+void read_sprites(void)
+{
+	HANDLE file_handle = CreateFile(
+		"..\\assets\\sprites\\0.bmp",
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+	
+	if (file_handle == INVALID_HANDLE_VALUE)
+	{
+		FatalAppExit(0, "Failed to open file for reading.");
+	}
+	
+	uint32_t file_size = GetFileSize(file_handle, NULL);
+	
+	HANDLE process_heap_handle = GetProcessHeap();
+	
+	if (process_heap_handle == NULL)
+	{
+		FatalAppExit(0, "Failed to get a handle to the process heap.");
+	}
+	
+	char *raw_data = HeapAlloc(process_heap_handle, HEAP_ZERO_MEMORY, file_size);
+	DWORD bytes_read;
+	int32_t result = ReadFile(
+		file_handle,
+		raw_data,
+		file_size,
+		&bytes_read,
+		NULL
+	);
+	
+	if (result == 0)
+	{
+		FatalAppExit(0, "Failed to read file.");
+	}
+	
+	CloseHandle(file_handle);
+}
+
 void render_rect_to_frame(const RenderRect *rect)
 {
 	for (int y = 0; y < rect->height; ++y)
@@ -388,4 +453,9 @@ void render(void)
 		DIB_RGB_COLORS,
 		SRCCOPY
 	);	
+}
+
+void update(void)
+{
+	
 }
