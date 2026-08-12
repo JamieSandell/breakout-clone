@@ -344,6 +344,13 @@ void load_bitmap_into_sprite(const char *file_name, Sprite *sprite)
 	
 	unsigned long bytes_to_read = bytes_read - offset;
 	
+	for (unsigned long i = 0; i < bytes_to_read; i += 3)
+	{
+		uint32_t *current_pixel = (uint32_t *)(raw_data + offset + i);
+		*(sprite->pixel) = *current_pixel;
+		sprite->pixel->a = 255;
+	}
+	
 	CloseHandle(file_handle);
 }
 
