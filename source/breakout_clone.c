@@ -309,7 +309,7 @@ void load_bitmap_into_sprite(const char *file_name, Sprite *sprite)
 		FatalAppExit(0, "Failed to get a handle to the process heap.");
 	}
 	
-	char *raw_data = HeapAlloc(process_heap_handle, HEAP_ZERO_MEMORY, file_size);
+	uint8_t *raw_data = HeapAlloc(process_heap_handle, HEAP_ZERO_MEMORY, file_size);
 	unsigned long bytes_read;
 	int32_t result = ReadFile(
 		file_handle,
@@ -341,14 +341,12 @@ void load_bitmap_into_sprite(const char *file_name, Sprite *sprite)
 	BITMAPINFOHEADER *info_header = (BITMAPINFOHEADER *)(raw_data + 40);
 	sprite->height = (uint8_t)info_header->biHeight;
 	sprite->width = (uint8_t)info_header->biWidth;
-	
+	sprite->pixels = (Pixel*)(raw_data + offset);
 	unsigned long bytes_to_read = bytes_read - offset;
 	
-	for (unsigned long i = 0; i < bytes_to_read; i += 3)
+	for (unsigned long i = 0; i < bytes_to_read; ++i)
 	{
-		uint32_t *current_pixel = (uint32_t *)(raw_data + offset + i);
-		*(sprite->pixel) = *current_pixel;
-		sprite->pixel->a = 255;
+		sprite->pixels->a = 255;
 	}
 	
 	CloseHandle(file_handle);
